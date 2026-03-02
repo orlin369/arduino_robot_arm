@@ -27,6 +27,9 @@ void TCMController::begin(JointConfig joints[TCM_NUM_JOINTS], uint16_t tickMs)
                            initPhys);
 
         // Attach servo with calibrated pulse-width range and drive to initial position.
+#if defined(TARGET_ESP32)
+        joints[j].servo->setPeriodHertz(50);
+#endif
         joints[j].servo->attach(joints[j].pin, joints[j].minUs, joints[j].maxUs);
         _writeServo(j, initPhys);
     }
@@ -139,5 +142,10 @@ void TCMController::_writeServo(uint8_t j, float physDeg)
                         (float)_joints[j].minAngle,
                         (float)_joints[j].maxAngle);
     safe = _clamp(safe, 0.0f, 180.0f);
-    _joints[j].servo->write((int)safe);
+    // Compute pulse width directly from the calibrated range so the mapping
+    // is identical on all platforms (Arduino Servo and ESP32Servo both accept
+    // writeMicroseconds but differ in how write(angle) maps to microseconds).
+    int us = (int)(_joints[j].minUs
+                   + (safe / 180.0f) * (float)(_joints[j].maxUs - _joints[j].minUs));
+    _joints[j].servo->writeMicroseconds(us);
 }

@@ -4,10 +4,8 @@
 #else
   #include <Servo.h>
 #endif
-#include <TCMController.h>
-#include <SerialProtocol.h>
 
-// PWM pin assignments — one MG995 servo per joint
+// PWM pin assignments — one MG-996R servo per joint
 // Arduino Sensor Shield labels are kept as comments for cross-reference.
 #if defined(TARGET_ESP32)
   #define PIN_BASE         25  // D3  → GPIO25
@@ -25,6 +23,88 @@
   #define PIN_GRIPPER      11  // D11
 #endif
 
+// Servo objects — one per joint
+Servo base;
+Servo shoulder;
+Servo elbow;
+Servo wristPitch;
+Servo wristRoll;
+Servo gripper;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// SERVO_CENTER_TEST — bare-metal smoke test: attach servos and drive to center
+// (1500 μs). No TCM, no serial.
+//   All servos, full ESP32Servo init : pio run -e esp32-test  -t upload
+//   Base only,  full ESP32Servo init : pio run -e esp32-test1 -t upload
+//   Base only,  raw attach (no alloc): pio run -e esp32-test2 -t upload
+// ─────────────────────────────────────────────────────────────────────────────
+#if defined(SERVO_CENTER_TEST)
+
+void setup() {
+#if defined(SERVO_BARE_TEST)
+  // Sweep test: 1000 → 2000 → 1500 μs so any movement is clearly visible.
+  // Serial prints confirm the code is running.
+  Serial.begin(115200);
+  Serial.println("SERVO_BARE_TEST start");
+  base.attach(PIN_BASE);
+  Serial.print("attached pin "); Serial.println(PIN_BASE);
+  delay(500);
+  Serial.println("-> 1000 us (full CCW)");
+  base.writeMicroseconds(1000);
+  delay(2000);
+  Serial.println("-> 2000 us (full CW)");
+  base.writeMicroseconds(2000);
+  delay(2000);
+  Serial.println("-> 1500 us (center)");
+  base.writeMicroseconds(1500);
+  Serial.println("done");
+#else
+#if defined(TARGET_ESP32)
+  ESP32PWM::allocateTimer(0);
+#if !defined(SERVO_SINGLE_TEST)
+  ESP32PWM::allocateTimer(1);
+  ESP32PWM::allocateTimer(2);
+  ESP32PWM::allocateTimer(3);
+#endif
+  base.setPeriodHertz(50);
+#if !defined(SERVO_SINGLE_TEST)
+  shoulder.setPeriodHertz(50);
+  elbow.setPeriodHertz(50);
+  wristPitch.setPeriodHertz(50);
+  wristRoll.setPeriodHertz(50);
+  gripper.setPeriodHertz(50);
+#endif
+#endif
+  base.attach(PIN_BASE, 500, 2500);
+#if !defined(SERVO_SINGLE_TEST)
+  shoulder.attach(PIN_SHOULDER, 500, 2500);
+  elbow.attach(PIN_ELBOW, 500, 2500);
+  wristPitch.attach(PIN_WRIST_PITCH, 500, 2500);
+  wristRoll.attach(PIN_WRIST_ROLL, 500, 2500);
+  gripper.attach(PIN_GRIPPER, 500, 2500);
+#endif
+
+  base.writeMicroseconds(1500);
+#if !defined(SERVO_SINGLE_TEST)
+  shoulder.writeMicroseconds(1500);
+  elbow.writeMicroseconds(1500);
+  wristPitch.writeMicroseconds(1500);
+  wristRoll.writeMicroseconds(1500);
+  gripper.writeMicroseconds(1500);
+#endif
+#endif // SERVO_BARE_TEST
+}
+
+void loop() {}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Normal firmware — TCM trapezoidal profiles + serial command interface
+// ─────────────────────────────────────────────────────────────────────────────
+#else
+
+#include <TCMController.h>
+#include <SerialProtocol.h>
+
 // Angle limits per joint (degrees, 0–180 hardware range)
 #define BASE_MIN          0
 #define BASE_MAX        180
@@ -39,19 +119,19 @@
 #define GRIPPER_MIN      10
 #define GRIPPER_MAX     170
 
-// Servo pulse-width calibration per joint (μs at 0° / 180°)
-#define BASE_MIN_US          600
-#define BASE_MAX_US         2300
-#define SHOULDER_MIN_US      800
-#define SHOULDER_MAX_US     2300
-#define ELBOW_MIN_US         750
-#define ELBOW_MAX_US        2300
-#define WRIST_PITCH_MIN_US   750
-#define WRIST_PITCH_MAX_US  2300
+// MG-996R servo pulse-width range: 500 μs (0°) → 2500 μs (180°), center = 1500 μs (90°)
+#define BASE_MIN_US          500
+#define BASE_MAX_US         2500
+#define SHOULDER_MIN_US      500
+#define SHOULDER_MAX_US     2500
+#define ELBOW_MIN_US         500
+#define ELBOW_MAX_US        2500
+#define WRIST_PITCH_MIN_US   500
+#define WRIST_PITCH_MAX_US  2500
 #define WRIST_ROLL_MIN_US    500
-#define WRIST_ROLL_MAX_US   2000
-#define GRIPPER_MIN_US      1700
-#define GRIPPER_MAX_US      2800
+#define WRIST_ROLL_MAX_US   2500
+#define GRIPPER_MIN_US       500
+#define GRIPPER_MAX_US      2500
 
 // Center position compensation per joint (degrees, tune per physical servo)
 // Positive = shift center clockwise, negative = counter-clockwise
@@ -78,14 +158,6 @@
 #define GRIPPER_MAX_VEL    90.0f
 #define GRIPPER_MAX_ACCEL 180.0f
 
-// Servo objects — one per joint
-Servo base;
-Servo shoulder;
-Servo elbow;
-Servo wristPitch;
-Servo wristRoll;
-Servo gripper;
-
 // TCM controller — manages trapezoidal motion profiles for all joints
 TCMController controller;
 
@@ -93,6 +165,15 @@ TCMController controller;
 SerialProtocol protocol;
 
 void setup() {
+#if defined(TARGET_ESP32)
+  // ESP32Servo requires PWM timers to be allocated before any servo attach().
+  // Without this the attach() call silently fails and no PWM is generated.
+  ESP32PWM::allocateTimer(0);
+  ESP32PWM::allocateTimer(1);
+  ESP32PWM::allocateTimer(2);
+  ESP32PWM::allocateTimer(3);
+#endif
+
   // Joint configurations — pin, limits, center offset, and TCM constraints.
   // The controller attaches the servos and parks them at center on begin().
   TCMController::JointConfig joints[TCM_NUM_JOINTS] = {
@@ -105,6 +186,9 @@ void setup() {
   };
 
   controller.begin(joints);
+#if defined(TARGET_ESP32)
+  delay(500);  // ESP32 LEDC needs time to stabilize PWM after attach().
+#endif
   protocol.begin(&controller);
   float home[TCM_NUM_JOINTS] = {90, 90, 90, 90, 90, 90};
   controller.moveTo(home, false);
@@ -116,3 +200,5 @@ void loop() {
   // Parse incoming serial commands and dispatch to the controller.
   protocol.update();
 }
+
+#endif // SERVO_CENTER_TEST
