@@ -26,8 +26,8 @@ void TCMController::begin(JointConfig joints[TCM_NUM_JOINTS], uint16_t tickMs)
                            joints[j].maxAccel,
                            initPhys);
 
-        // Attach servo and drive to initial position.
-        joints[j].servo->attach(joints[j].pin);
+        // Attach servo with calibrated pulse-width range and drive to initial position.
+        joints[j].servo->attach(joints[j].pin, joints[j].minUs, joints[j].maxUs);
         _writeServo(j, initPhys);
     }
 

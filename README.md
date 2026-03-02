@@ -1,19 +1,21 @@
 # Arduino Robot Arm
 
-6-DOF robot arm driven by 6× MG995 servos, controlled by an **Arduino UNO** via PlatformIO.
+6-DOF robot arm driven by 6× MG995 servos. Supports **Arduino UNO** and **ESP32** targets via PlatformIO (default: ESP32).
 
 ## Hardware
 
 ### Pin Assignments
 
-| Pin | Joint       | Axis  |
-|-----|-------------|-------|
-| 3   | Base        | Yaw   |
-| 5   | Shoulder    | Pitch |
-| 6   | Elbow       | Pitch |
-| 9   | Wrist Pitch | Pitch |
-| 10  | Wrist Roll  | Roll  |
-| 11  | Gripper     | —     |
+Servos are wired through an **Arduino Sensor Shield** (D-header labels).
+
+| Shield | Joint       | Axis  | UNO Pin | ESP32 GPIO |
+|--------|-------------|-------|---------|------------|
+| D3     | Base        | Yaw   | 3       | 25         |
+| D5     | Shoulder    | Pitch | 5       | 16         |
+| D6     | Elbow       | Pitch | 6       | 27         |
+| D9     | Wrist Pitch | Pitch | 9       | 13         |
+| D10    | Wrist Roll  | Roll  | 10      | 5          |
+| D11    | Gripper     | —     | 11      | 23         |
 
 **Power:** Servos must be powered from a dedicated 5–6 V supply (≥6 A). Share GND with the Arduino. Do **not** power servos from the Arduino 5 V rail.
 
@@ -22,16 +24,21 @@
 ### Prerequisites
 
 - [PlatformIO Core](https://docs.platformio.org/en/latest/core/installation/index.html) or the VSCode PlatformIO extension
-- Arduino UNO connected via USB (`/dev/ttyACM0` on Linux, `COMx` on Windows)
+- **ESP32** (default): connected via USB (`/dev/ttyUSB0` on Linux, `COMx` on Windows)
+- **Arduino UNO** (alternate): connected via USB (`/dev/ttyACM0` on Linux, `COMx` on Windows)
 
 ### Build & Flash
 
 ```bash
-# Build
+# Build default target (ESP32)
 pio run
 
-# Upload to UNO
+# Upload to ESP32 (default)
 pio run --target upload
+
+# Build / upload Arduino UNO explicitly
+pio run -e uno
+pio run -e uno --target upload
 
 # Open serial monitor (115200 baud)
 pio device monitor
@@ -47,14 +54,17 @@ All control happens over a plain-text serial interface at **115200 baud**. Comma
 # PlatformIO built-in monitor
 pio device monitor
 
-# picocom
+# picocom — ESP32
+picocom -b 115200 /dev/ttyUSB0
+
+# picocom — Arduino UNO
 picocom -b 115200 /dev/ttyACM0
 
-# screen
-screen /dev/ttyACM0 115200
+# screen — ESP32
+screen /dev/ttyUSB0 115200
 ```
 
-On Windows use the COM port shown in Device Manager (e.g. `COM3`) in place of `/dev/ttyACM0`.
+On Windows use the COM port shown in Device Manager (e.g. `COM3`) in place of the `/dev/tty*` path.
 
 ### Command Reference
 

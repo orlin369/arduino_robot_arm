@@ -1,6 +1,10 @@
 #pragma once
 #include <Arduino.h>
-#include <Servo.h>
+#if defined(TARGET_ESP32)
+  #include <ESP32Servo.h>
+#else
+  #include <Servo.h>
+#endif
 #include "TCMProfile.h"
 
 static const uint8_t TCM_NUM_JOINTS = 6;
@@ -56,6 +60,8 @@ public:
         int8_t   centerOffset;  ///< Calibration offset: physical = logical + offset.
         float    maxVelocity;   ///< Cruise speed cap (deg/s).
         float    maxAccel;      ///< Acceleration / deceleration (deg/s²).
+        uint16_t minUs;         ///< Pulse width at 0° (μs).
+        uint16_t maxUs;         ///< Pulse width at 180° (μs).
     };
 
     // ── Lifecycle ─────────────────────────────────────────────────────────
