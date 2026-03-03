@@ -34,9 +34,11 @@ Servo gripper;
 // ─────────────────────────────────────────────────────────────────────────────
 // SERVO_CENTER_TEST — bare-metal smoke test: attach servos and drive to center
 // (1500 μs). No TCM, no serial.
-//   All servos, full ESP32Servo init : pio run -e esp32-test  -t upload
-//   Base only,  full ESP32Servo init : pio run -e esp32-test1 -t upload
-//   Base only,  raw attach (no alloc): pio run -e esp32-test2 -t upload
+//   All servos, full ESP32Servo init  : pio run -e esp32-test  -t upload
+//   Base only,  full ESP32Servo init  : pio run -e esp32-test1 -t upload
+//   Base only,  raw attach (no alloc) : pio run -e esp32-test2 -t upload
+//   Shoulder only, full ESP32Servo    : pio run -e esp32-test3 -t upload
+//   Shoulder interactive (serial)     : pio run -e esp32-test4 -t upload
 // ─────────────────────────────────────────────────────────────────────────────
 #if defined(SERVO_CENTER_TEST)
 
@@ -61,31 +63,107 @@ void setup() {
 #else
 #if defined(TARGET_ESP32)
   ESP32PWM::allocateTimer(0);
-#if !defined(SERVO_SINGLE_TEST)
+#if !defined(SERVO_SINGLE_TEST) && !defined(SERVO_SHOULDER_TEST) && !defined(SERVO_SHOULDER_INTERACTIVE)
   ESP32PWM::allocateTimer(1);
   ESP32PWM::allocateTimer(2);
   ESP32PWM::allocateTimer(3);
 #endif
+#endif
+
+#if defined(SERVO_SINGLE_TEST)
+  // Base servo only — send 1500 μs and observe physical center.
   base.setPeriodHertz(50);
-#if !defined(SERVO_SINGLE_TEST)
+  base.attach(PIN_BASE, 500, 2500);
+  base.writeMicroseconds(1500);
+
+#elif defined(SERVO_SHOULDER_TEST)
+  // Shoulder servo only — send 1500 μs and observe physical center.
+  // Adjust SHOULDER_CENTER_OFFSET in main firmware once center is confirmed.
+  shoulder.setPeriodHertz(50);
+  shoulder.attach(PIN_SHOULDER, 500, 2500);
+  shoulder.writeMicroseconds(1500);
+
+#elif defined(SERVO_SHOULDER_INTERACTIVE)
+  // Shoulder continuous sweep on confirmed pin GPIO16.
+  // loop() handles the sweep: 1000 µs ↔ 2000 µs, repeating indefinitely.
+  ESP32PWM::allocateTimer(1);
+  ESP32PWM::allocateTimer(2);
+  ESP32PWM::allocateTimer(3);
+  shoulder.setPeriodHertz(50);
+  shoulder.attach(PIN_SHOULDER, 500, 2500);
+
+#elif defined(SERVO_BASE_INTERACTIVE)
+  // Base continuous sweep on confirmed pin GPIO25.
+  // loop() handles the sweep: 1000 µs ↔ 2000 µs, repeating indefinitely.
+  ESP32PWM::allocateTimer(1);
+  ESP32PWM::allocateTimer(2);
+  ESP32PWM::allocateTimer(3);
+  base.setPeriodHertz(50);
+  base.attach(PIN_BASE, 500, 2500);
+
+#elif defined(SERVO_ELBOW_INTERACTIVE)
+  // Elbow continuous sweep on GPIO27.
+  // loop() handles the sweep: 1000 µs ↔ 2000 µs, repeating indefinitely.
+  ESP32PWM::allocateTimer(1);
+  ESP32PWM::allocateTimer(2);
+  ESP32PWM::allocateTimer(3);
+  elbow.setPeriodHertz(50);
+  elbow.attach(PIN_ELBOW, 500, 2500);
+
+#elif defined(SERVO_WRIST_PITCH_INTERACTIVE)
+  // Wrist pitch continuous sweep on GPIO13.
+  // loop() handles the sweep: 1000 µs ↔ 2000 µs, repeating indefinitely.
+  ESP32PWM::allocateTimer(1);
+  ESP32PWM::allocateTimer(2);
+  ESP32PWM::allocateTimer(3);
+  wristPitch.setPeriodHertz(50);
+  wristPitch.attach(PIN_WRIST_PITCH, 500, 2500);
+
+#elif defined(SERVO_WRIST_ROLL_INTERACTIVE)
+  // Wrist roll continuous sweep on GPIO5.
+  // loop() handles the sweep: 1000 µs ↔ 2000 µs, repeating indefinitely.
+  ESP32PWM::allocateTimer(1);
+  ESP32PWM::allocateTimer(2);
+  ESP32PWM::allocateTimer(3);
+  wristRoll.setPeriodHertz(50);
+  wristRoll.attach(PIN_WRIST_ROLL, 500, 2500);
+
+#elif defined(SERVO_GRIPPER_INTERACTIVE)
+  // Gripper continuous sweep on GPIO23.
+  // loop() handles the sweep: 1000 µs ↔ 2000 µs, repeating indefinitely.
+  ESP32PWM::allocateTimer(1);
+  ESP32PWM::allocateTimer(2);
+  ESP32PWM::allocateTimer(3);
+  gripper.setPeriodHertz(50);
+  gripper.attach(PIN_GRIPPER, 500, 2500);
+
+#elif defined(SERVO_ALL_SWEEP)
+  // All six servos swept simultaneously: 500 µs ↔ 700 µs continuously.
+  ESP32PWM::allocateTimer(1);
+  ESP32PWM::allocateTimer(2);
+  ESP32PWM::allocateTimer(3);
+  base.setPeriodHertz(50);       base.attach(PIN_BASE,        500, 2500);
+  shoulder.setPeriodHertz(50);   shoulder.attach(PIN_SHOULDER, 500, 2500);
+  elbow.setPeriodHertz(50);      elbow.attach(PIN_ELBOW,       500, 2500);
+  wristPitch.setPeriodHertz(50); wristPitch.attach(PIN_WRIST_PITCH, 500, 2500);
+  wristRoll.setPeriodHertz(50);  wristRoll.attach(PIN_WRIST_ROLL,   500, 2500);
+  gripper.setPeriodHertz(50);    gripper.attach(PIN_GRIPPER,        500, 2500);
+
+#else
+  // All six servos driven to 1500 μs simultaneously.
+  base.setPeriodHertz(50);
   shoulder.setPeriodHertz(50);
   elbow.setPeriodHertz(50);
   wristPitch.setPeriodHertz(50);
   wristRoll.setPeriodHertz(50);
   gripper.setPeriodHertz(50);
-#endif
-#endif
   base.attach(PIN_BASE, 500, 2500);
-#if !defined(SERVO_SINGLE_TEST)
   shoulder.attach(PIN_SHOULDER, 500, 2500);
   elbow.attach(PIN_ELBOW, 500, 2500);
   wristPitch.attach(PIN_WRIST_PITCH, 500, 2500);
   wristRoll.attach(PIN_WRIST_ROLL, 500, 2500);
   gripper.attach(PIN_GRIPPER, 500, 2500);
-#endif
-
   base.writeMicroseconds(1500);
-#if !defined(SERVO_SINGLE_TEST)
   shoulder.writeMicroseconds(1500);
   elbow.writeMicroseconds(1500);
   wristPitch.writeMicroseconds(1500);
@@ -95,7 +173,58 @@ void setup() {
 #endif // SERVO_BARE_TEST
 }
 
-void loop() {}
+void loop() {
+#if defined(SERVO_BASE_INTERACTIVE)
+  base.writeMicroseconds(1000);   // extreme A
+  delay(2000);
+  base.writeMicroseconds(2000);   // extreme B
+  delay(2000);
+#elif defined(SERVO_SHOULDER_INTERACTIVE)
+  shoulder.writeMicroseconds(500);    // extreme A
+  delay(2000);
+  shoulder.writeMicroseconds(1000);   // centre
+  delay(2000);
+#elif defined(SERVO_ELBOW_INTERACTIVE)
+  elbow.writeMicroseconds(1000);   // extreme A
+  delay(2000);
+  elbow.writeMicroseconds(2000);   // extreme B
+  delay(2000);
+#elif defined(SERVO_WRIST_PITCH_INTERACTIVE)
+  wristPitch.writeMicroseconds(1000);   // extreme A
+  delay(2000);
+  wristPitch.writeMicroseconds(2000);   // extreme B
+  delay(2000);
+#elif defined(SERVO_WRIST_ROLL_INTERACTIVE)
+  wristRoll.writeMicroseconds(1000);   // extreme A
+  delay(2000);
+  wristRoll.writeMicroseconds(2000);   // extreme B
+  delay(2000);
+#elif defined(SERVO_GRIPPER_INTERACTIVE)
+  gripper.writeMicroseconds(1000);   // extreme A
+  delay(2000);
+  gripper.writeMicroseconds(2000);   // extreme B
+  delay(2000);
+#elif defined(SERVO_ALL_SWEEP)
+  for (int us = 500; us <= 700; us += 5) {
+    base.writeMicroseconds(us);
+    shoulder.writeMicroseconds(us);
+    elbow.writeMicroseconds(us);
+    wristPitch.writeMicroseconds(us);
+    wristRoll.writeMicroseconds(us);
+    gripper.writeMicroseconds(us);
+    delay(20);
+  }
+  for (int us = 700; us >= 500; us -= 5) {
+    base.writeMicroseconds(us);
+    shoulder.writeMicroseconds(us);
+    elbow.writeMicroseconds(us);
+    wristPitch.writeMicroseconds(us);
+    wristRoll.writeMicroseconds(us);
+    gripper.writeMicroseconds(us);
+    delay(20);
+  }
+#endif
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // Normal firmware — TCM trapezoidal profiles + serial command interface
@@ -136,7 +265,7 @@ void loop() {}
 // Center position compensation per joint (degrees, tune per physical servo)
 // Positive = shift center clockwise, negative = counter-clockwise
 #define BASE_CENTER_OFFSET          0
-#define SHOULDER_CENTER_OFFSET      0
+#define SHOULDER_CENTER_OFFSET    -45  // physical center at 1000 µs (45°)
 #define ELBOW_CENTER_OFFSET         0
 #define WRIST_PITCH_CENTER_OFFSET   0
 #define WRIST_ROLL_CENTER_OFFSET    0
